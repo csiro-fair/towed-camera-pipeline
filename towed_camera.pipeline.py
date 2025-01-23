@@ -88,10 +88,7 @@ class TowedCameraPipeline(BasePipeline):
         Returns:
             dict: Configuration parameters for the pipeline
         """
-        return {
-            "voyage_id": "IN2018_V06",
-            "platform_id": "MRITC",
-        }
+        return {}
 
     @staticmethod
     def get_collection_config_schema() -> dict:
@@ -135,6 +132,17 @@ class TowedCameraPipeline(BasePipeline):
                     dest_file = dest_dir / source_file.name
                     self._create_hard_link(source_file, dest_file)
 
+    def _create_hard_link(self, source_file: Path, dest_file: Path) -> None:
+        """Helper method to create hard links with error handling."""
+        if not self.dry_run:
+            try:
+                os.link(str(source_file), str(dest_file))
+                self.logger.debug(f"Created hard link: {source_file} -> {dest_file}")
+            except FileExistsError:
+                self.logger.warning(f"Destination file already exists: {dest_file}")
+            except OSError as e:
+                self.logger.exception(f"Failed to create hard link for {source_file}: {e}")
+
     def _import(
         self,
         data_dir: Path,
@@ -164,17 +172,6 @@ class TowedCameraPipeline(BasePipeline):
         self._import_data_files(source_dirs["data"], dest_dirs["data"], deployment_id)
         self._import_still_images(source_dirs["stills"], dest_dirs["stills"])
         self._import_video_files(source_dirs["video"], dest_dirs["video"])
-
-    def _create_hard_link(self, source_file: Path, dest_file: Path) -> None:
-        """Helper method to create hard links with error handling."""
-        if not self.dry_run:
-            try:
-                os.link(str(source_file), str(dest_file))
-                self.logger.debug(f"Created hard link: {source_file} -> {dest_file}")
-            except FileExistsError:
-                self.logger.warning(f"Destination file already exists: {dest_file}")
-            except OSError as e:
-                self.logger.exception(f"Failed to create hard link for {source_file}: {e}")
 
     def _process(
         self,
