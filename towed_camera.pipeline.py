@@ -118,7 +118,7 @@ class TowedCameraPipeline(BasePipeline):
 
         for source_file in source_dir.glob("*.JPG"):
             dest_file = dest_dir / source_file.name
-            copy2(source_file, dest_file)
+            self._create_hard_link(source_file, dest_file)
 
     def _import_video_files(self, source_dir: Path, dest_dir: Path) -> None:
         """Import video files with specific naming pattern."""
@@ -227,16 +227,25 @@ class TowedCameraPipeline(BasePipeline):
         # Initialise an empty dictionary to store file mappings
         data_mapping: dict[Path, tuple[Path, list[BaseMetadata] | None, dict[str, Any] | None]] = {}
 
+        # Find TAG CSV files
+        tag_files = list((data_dir / "data").glob("*TAG*.CSV"))
+        if not tag_files:
+            self.logger.warning(f"No TAG CSV files found in {data_dir / 'data'} - skipping packaging collection")
+            return data_mapping
+
+        # Read the sensor data CSV file
+        try:
+            sensor_data_df = pd.read_csv(tag_files[0])
+            sensor_data_df["FinalTime"] = pd.to_datetime(
+                sensor_data_df["FinalTime"],
+                format="%Y-%m-%d %H:%M:%S.%f",
+            ).dt.floor("s")
+        except (pd.errors.EmptyDataError, pd.errors.ParserError, ValueError, OSError) as e:
+            self.logger.warning(f"Failed to process TAG CSV file {tag_files[0]}: {e!s} - skipping packaging collection")
+            return data_mapping
+
         # Recursively gather all file paths from the data directory
         file_paths = data_dir.rglob("*")
-
-        # Read the sensor data CSV file and parse the 'FinalTime' column as datetime, flooring to the nearest second
-        # for matching timestamps
-        sensor_data_df = pd.read_csv(next((data_dir / "data").glob("*TAG*.CSV")))
-        sensor_data_df["FinalTime"] = pd.to_datetime(
-            sensor_data_df["FinalTime"],
-            format="%Y-%m-%d %H:%M:%S.%f",
-        ).dt.floor("s")
 
         for file_path in file_paths:
 
