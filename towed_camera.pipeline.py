@@ -110,8 +110,7 @@ class TowedCameraPipeline(BasePipeline):
                 dest_file = dest_dir / source_file.name
                 self._create_hard_link(source_file, dest_file)
 
-    @staticmethod
-    def _import_still_images(source_dir: Path, dest_dir: Path) -> None:
+    def _import_still_images(self, source_dir: Path, dest_dir: Path) -> None:
         """Import JPG files from stills directory."""
         if not source_dir.exists():
             return
